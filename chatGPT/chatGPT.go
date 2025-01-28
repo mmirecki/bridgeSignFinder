@@ -6,11 +6,9 @@ import (
 	"fmt"
 	resty "github.com/go-resty/resty/v2"
 	"io/ioutil"
-	"log"
 	"os"
+	"strings"
 )
-
-// const apiKey = <your key here>
 
 const (
 	apiEndpoint = "https://api.openai.com/v1/chat/completions"
@@ -26,22 +24,31 @@ What is the height under the bridge: %s
 Please answer just yes or no plus the height of the bridge
 `
 
-func QueryDir(outputDir string) error {
+func QueryDir(outputDir string) (map[string]map[string]string, error) {
 
 	outputDirFile, err := os.ReadDir(outputDir)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
+	resultsMap := make(map[string]map[string]string)
+
+	count := 0
+
 	for _, imagesDir := range outputDirFile {
-		resultsForVideo := make([]string, 0)
+		resultsForVideo := make(map[string]string, 0)
 		if !imagesDir.IsDir() {
 			continue
+		}
+		count++
+		if count > 2 {
+			//return resultsMap, nil
 		}
 		imageDirName := fmt.Sprintf("%s/%s", outputDir, imagesDir.Name())
 		imageDirFiles, err := os.ReadDir(imageDirName)
 		if err != nil {
-			return err
+			fmt.Printf("Error reading directory %s: %v", imageDirName, err)
+			continue
 		}
 
 		for _, imageFile := range imageDirFiles {
@@ -50,22 +57,27 @@ func QueryDir(outputDir string) error {
 			}
 			fileName := fmt.Sprintf("%s/%s", imageDirName, imageFile.Name())
 
-			result := Query_image_2(fileName)
-			resultsForVideo = append(resultsForVideo, result)
+			result, err := Query_image_2(fileName)
+			if err != nil {
+				fmt.Printf("Error querying image %s: %v", imageFile.Name(), err)
+				continue
+			}
+			if strings.HasPrefix(result, "NO") || strings.Contains(result, "not visible") || strings.Contains(result, "height unknown") || strings.Contains(result, "not specified") {
+				continue
+			}
+
+			resultsForVideo[imageFile.Name()] = result
 		}
 
-		fmt.Printf("=================\n\n")
-		for _, result := range resultsForVideo {
-			fmt.Println(result)
-		}
+		resultsMap[imagesDir.Name()] = resultsForVideo
 
 	}
 
-	return nil
+	return resultsMap, nil
 
 }
 
-func Query_image_2(filePath string) string {
+func Query_image_2(filePath string) (string, error) {
 	// Use your API KEY here
 
 	//filePath := "/Users/marcin.mirecki/go/src/github.com/mmirecki/examples/chatgpt/LBS_2.png"
@@ -111,7 +123,8 @@ func Query_image_2(filePath string) string {
 		Post(apiEndpoint)
 
 	if err != nil {
-		log.Fatalf("Error while sending send the request: %v", err)
+		fmt.Printf("Error while sending send the request: %v", err)
+		return "", err
 	}
 
 	body := response.Body()
@@ -120,7 +133,7 @@ func Query_image_2(filePath string) string {
 	err = json.Unmarshal(body, &data)
 	if err != nil {
 		fmt.Println("Error while decoding JSON response:", err)
-		return ""
+		return "", err
 	}
 
 	//fmt.Printf("DATA: %+v\n", data)
@@ -128,6 +141,6 @@ func Query_image_2(filePath string) string {
 	content := data["choices"].([]interface{})[0].(map[string]interface{})["message"].(map[string]interface{})["content"].(string)
 	fmt.Println(content)
 
-	return content
+	return content, nil
 
 }

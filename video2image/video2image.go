@@ -26,17 +26,12 @@ func CheckSamples(videoPath, outputPath string) error {
 			if err != nil {
 				fmt.Printf("Error processing file: %s", fileName)
 			}
-
-			break
 		}
-
 	}
 	return nil
 }
 
 func Video2Images(videoFile string, videoFilePath string, outputPath string) error {
-
-	// photos/output_%s/%05d.png
 
 	inputFile := fmt.Sprintf("%s/%s", videoFilePath, videoFile)
 
@@ -45,6 +40,8 @@ func Video2Images(videoFile string, videoFilePath string, outputPath string) err
 	outputDir = fmt.Sprintf("%s/%s", outputPath, outputDir)
 	if _, err := os.Stat(outputDir); os.IsNotExist(err) {
 		os.Mkdir(outputDir, 0777)
+	} else {
+		return nil
 	}
 	outputFilePattern := fmt.Sprintf("%s/%%05d.png", outputDir)
 
